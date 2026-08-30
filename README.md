@@ -6,9 +6,12 @@ IdeaLens is an AI-powered web application that helps students and aspiring AI/ML
 
 It uses Generative AI to provide personalized project evaluations, skill-gap analysis, learning recommendations, and career-focused guidance.
 
+---
+
 ## ✨ Features
 
 ### 🤖 AI-Powered Project Analysis
+
 Describe a project idea and provide your career goal, experience level, and current skills.
 
 IdeaLens generates:
@@ -24,15 +27,18 @@ IdeaLens generates:
 
 ### 🧩 Skill Gap Analysis
 
-Identifies the skills required for the project and highlights areas that the user may need to improve.
+Identify the skills you may need to strengthen for your target project or career.
 
-### 📚 Learning Recommendations
+The application provides:
 
-Provides personalized recommendations for learning resources and project development based on identified skill gaps.
+- High-priority skill gaps
+- Medium-priority skill gaps
+- Recommended features
+- Learning and development directions
 
 ### ⚖️ Project Comparison
 
-Compare two project ideas based on:
+Compare two project ideas and determine which one is stronger based on:
 
 - Innovation
 - Impact
@@ -41,14 +47,18 @@ Compare two project ideas based on:
 - Resume value
 - Overall score
 
+IdeaLens provides an AI-generated recommendation to help users choose the better project.
+
 ### 🎯 Career-Focused Recommendations
 
-Suggests projects based on the user's:
+Project recommendations are tailored according to:
 
 - Career goal
 - Current skills
 - Experience level
 - AI/ML interests
+
+---
 
 ## 🛠️ Tech Stack
 
@@ -58,29 +68,75 @@ Suggests projects based on the user's:
 - Prompt Engineering
 - Git & GitHub
 
-## 🌐 Live Demo
+---
 
-👉 https://idealens.streamlit.app/
-
-## 📂 Project Structure
-
-```text
-IdeaLens/
-│## 📸 Screenshots
+## 📸 Screenshots
 
 ### 🏠 Home
+
 ![IdeaLens Home](screenshots/home.png)
 
 ### 📊 AI-Powered Evaluation
+
 ![IdeaLens Evaluation](screenshots/evaluation.png)
 
 ### 🧩 Skill Gap Analysis
+
 ![IdeaLens Skill Gap](screenshots/skill-gap.png)
 
 ### ⚖️ Project Comparison
+
 ![IdeaLens Comparison](screenshots/comparison.png)
-├── app.py
-├── requirements.txt
-├── README.md
-├── .gitignore
-└── screenshots/
+
+---
+
+## 📁 Project Structure
+
+    IdeaLens/
+    ├── app.py
+    ├── requirements.txt
+    ├── README.md
+    ├── .gitignore
+    └── screenshots/
+        ├── home.png
+        ├── evaluation.png
+        ├── skill-gap.png
+        └── comparison.png
+
+---
+
+## 🌐 Live Demo
+
+👉 [Try IdeaLens Live](https://idealens.streamlit.app/)
+
+---
+
+## 🎯 Project Goal
+
+IdeaLens is designed to help students and aspiring AI/ML engineers move from simply having project ideas to making informed decisions about what to build.
+
+By combining project evaluation, skill-gap analysis, comparison, and career-focused recommendations, the application helps users build projects that are both technically meaningful and valuable for their portfolios.
+
+---
+
+## 🚀 Future Improvements
+
+- Resume upload and automated resume analysis
+- Job-description and resume matching
+- Personalized learning roadmaps
+- User profile and progress tracking
+- GitHub and LinkedIn integration
+- More advanced AI/ML career recommendations
+- Project history and saved analyses
+
+---
+
+## 👩‍💻 Author
+
+**Praneetha Gorle**
+
+AI/ML & Generative AI Enthusiast
+
+---
+
+⭐ If you find IdeaLens interesting, consider giving the repository a star!
