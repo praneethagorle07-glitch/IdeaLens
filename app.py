@@ -160,6 +160,198 @@ def local_compare_fallback(project_a, project_b, career_goal, experience_level, 
     }
 
 
+def local_analysis_fallback(project_idea, career_goal, experience_level, skills):
+    """
+    Deterministic fallback used when Gemini is temporarily unavailable.
+    It keeps the main Analyze feature usable without claiming the result
+    came from Gemini.
+    """
+    idea = project_idea.strip()
+    skill_list = [s.strip() for s in skills.split(",") if s.strip()]
+    skill_set = {s.lower() for s in skill_list}
+
+    text = idea.lower()
+
+    title = idea.split(".")[0].strip()[:80] or "AI/ML Project"
+
+    # Lightweight keyword-based scoring.
+    impact_terms = [
+        "student", "career", "job", "resume", "customer", "business",
+        "health", "education", "support", "learning", "productivity",
+        "personalized", "recommend", "automation"
+    ]
+    technical_terms = [
+        "machine learning", "deep learning", "llm", "generative ai",
+        "nlp", "computer vision", "rag", "embedding", "recommendation",
+        "classification", "prediction", "api", "streamlit", "deployment",
+        "database", "ocr", "sentiment", "chatbot"
+    ]
+
+    impact_hits = sum(1 for term in impact_terms if term in text)
+    technical_hits = sum(1 for term in technical_terms if term in text)
+    skill_hits = sum(
+        1 for skill in skill_set
+        if len(skill) > 2 and skill in text
+    )
+
+    innovation = min(10, 6 + technical_hits // 2)
+    impact = min(10, 6 + impact_hits // 2)
+    feasibility = max(6, min(9, 9 - max(0, technical_hits - 5) // 2))
+    technical_depth = min(10, 6 + technical_hits // 2)
+    resume_value = min(10, 6 + (impact_hits + skill_hits) // 2)
+    overall = round(
+        (innovation + impact + feasibility + technical_depth + resume_value) / 5,
+        1
+    )
+
+    known = [
+        s for s in skill_list
+        if any(token in text for token in s.lower().split())
+    ]
+
+    candidate_gaps = [
+        ("Model deployment & MLOps", "High", "Helps move the project from prototype to a reliable deployable system."),
+        ("API development", "Medium", "Useful for exposing the model or AI workflow as a reusable service."),
+        ("Testing & monitoring", "Medium", "Improves reliability and makes the application easier to maintain."),
+        ("System design", "Low", "Helpful when expanding the project into a larger production system."),
+    ]
+
+    skill_gap = [
+        {"skill": skill, "importance": importance, "reason": reason}
+        for skill, importance, reason in candidate_gaps
+        if skill.lower() not in " ".join(known).lower()
+    ][:4]
+
+    tech_stack = ["Python", "Streamlit", "Generative AI", "Git & GitHub"]
+    if "python" in skill_set:
+        tech_stack.append("Pandas / NumPy")
+    if "sql" in skill_set:
+        tech_stack.append("SQL")
+    if any(term in text for term in ("nlp", "llm", "chatbot", "resume")):
+        tech_stack.append("NLP / LLM tooling")
+
+    skills_gain = [
+        "AI application design",
+        "Model evaluation",
+        "Prompt engineering",
+        "Deployment and testing",
+    ]
+
+    roadmap = [
+        {
+            "phase": "Phase 1",
+            "title": "Prototype",
+            "tasks": [
+                "Define the user workflow and success criteria.",
+                "Build the Streamlit interface.",
+                "Implement the core AI/ML pipeline.",
+            ],
+        },
+        {
+            "phase": "Phase 2",
+            "title": "Evaluation",
+            "tasks": [
+                "Test the system with representative inputs.",
+                "Measure output quality and edge cases.",
+                "Improve prompts and validation.",
+            ],
+        },
+        {
+            "phase": "Phase 3",
+            "title": "Deployment",
+            "tasks": [
+                "Package dependencies cleanly.",
+                "Deploy the application.",
+                "Add logging, error handling, and monitoring.",
+            ],
+        },
+    ]
+
+    alternatives = [
+        {
+            "title": "AI-Powered Code Review Assistant",
+            "description": "Analyze Python code, identify issues, and suggest practical improvements.",
+            "difficulty": "Beginner",
+            "reason": "Builds directly on Python and Generative AI skills while producing a portfolio-ready tool.",
+        },
+        {
+            "title": "Personalized AI Learning Assistant",
+            "description": "Create study plans, summaries, quizzes, and revision recommendations from uploaded material.",
+            "difficulty": "Intermediate",
+            "reason": "Combines NLP, Generative AI, and personalization in a practical user workflow.",
+        },
+        {
+            "title": "AI-Powered Recommendation Dashboard",
+            "description": "Recommend learning resources or projects using user interests and interaction history.",
+            "difficulty": "Intermediate",
+            "reason": "Adds recommendation-system concepts and data-driven personalization to the portfolio.",
+        },
+    ]
+
+    challenges = [
+        "Designing reliable outputs and handling edge cases.",
+        "Evaluating AI-generated results for consistency and relevance.",
+        "Keeping the application responsive as the workflow grows.",
+        "Preparing the project for secure, production-oriented deployment.",
+    ]
+
+    improvements = [
+        "Add input validation and structured output checks.",
+        "Add user feedback so results can be iteratively improved.",
+        "Track usage and evaluation metrics.",
+        "Add authentication and saved project history.",
+    ]
+
+    overview = (
+        f"This project uses AI/ML to address a practical problem for "
+        f"{career_goal} goals. For a {experience_level.lower()} user, "
+        f"it provides a manageable starting point with room to expand "
+        f"toward production-oriented AI engineering."
+    )
+
+    problem = (
+        "Users often need to make decisions or complete repetitive tasks "
+        "that require understanding unstructured information. This project "
+        "aims to automate part of that workflow and provide actionable output."
+    )
+
+    verdict = (
+        f"The idea is a solid portfolio project for a {experience_level.lower()} "
+        f"targeting {career_goal}, especially because it can demonstrate "
+        "practical AI integration, evaluation, and deployment skills."
+    )
+
+    resume_bullet = (
+        f"Built {title} using Python, Streamlit, and Generative AI to "
+        "deliver an interactive AI-powered workflow with evaluation, "
+        "personalized insights, and portfolio-ready output."
+    )
+
+    return {
+        "project_title": title,
+        "overview": overview,
+        "problem": problem,
+        "scores": {
+            "innovation": innovation,
+            "impact": impact,
+            "feasibility": feasibility,
+            "technical_depth": technical_depth,
+            "resume_value": resume_value,
+        },
+        "verdict": verdict,
+        "tech_stack": list(dict.fromkeys(tech_stack)),
+        "skills_you_will_gain": skills_gain,
+        "skill_gap": skill_gap,
+        "recommended_features": improvements[:5],
+        "roadmap": roadmap,
+        "alternative_projects": alternatives,
+        "challenges": challenges,
+        "improvements": improvements,
+        "resume_bullet": resume_bullet,
+        "source": "local_fallback",
+    }
+
+
 st.set_page_config(
     page_title="IdeaLens",
     page_icon="💡",
@@ -972,17 +1164,35 @@ Rules:
 
             try:
 
-                response = generate_json_with_retry(
-                    prompt,
-                    model_name="gemini-2.5-flash",
-                    max_retries=3
-                )
+                analysis_source = "ai"
 
-                data = json.loads(response.text)
+                try:
+                    response = generate_json_with_retry(
+                        prompt,
+                        model_name="gemini-3.1-flash-lite",
+                        max_retries=4
+                    )
+
+                    data = json.loads(response.text)
+
+                except Exception:
+                    data = local_analysis_fallback(
+                        project_idea,
+                        career_goal,
+                        experience_level,
+                        skills
+                    )
+                    analysis_source = "local_fallback"
 
                 st.success(
                     "Analysis completed! 🎉"
                 )
+
+                if analysis_source == "local_fallback":
+                    st.info(
+                        "Gemini was temporarily unavailable, so IdeaLens used "
+                        "local fallback analysis for this result."
+                    )
 
 
                 # =================================================
@@ -1325,14 +1535,6 @@ Rules:
                 )
 
 
-            except json.JSONDecodeError:
-
-                st.error(
-                    "Gemini returned an unexpected "
-                    "response format. Please try again."
-                )
-
-
             except Exception:
 
                 st.error(
@@ -1340,8 +1542,7 @@ Rules:
                 )
 
                 st.info(
-                    "The AI service may be temporarily busy. "
-                    "Please try again in a few seconds."
+                    "Please check your API key and try the analysis again."
                 )
 
 
