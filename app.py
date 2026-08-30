@@ -1,6 +1,7 @@
 
 import os
 import json
+import time
 import textwrap
 import streamlit as st
 from dotenv import load_dotenv
@@ -12,12 +13,59 @@ from google import genai
 
 load_dotenv()
 
-API_KEY = os.getenv("GEMINI_API_KEY")
+
+# =========================================================
+# GEMINI API CONFIGURATION
+# =========================================================
+
+API_KEY = None
+
+# Try Streamlit Secrets first (used when deployed)
+try:
+    API_KEY = st.secrets.get("GEMINI_API_KEY")
+except Exception:
+    API_KEY = None
+
+# Fall back to .env for local development
+if not API_KEY:
+    API_KEY = os.getenv("GEMINI_API_KEY")
 
 if API_KEY:
     client = genai.Client(api_key=API_KEY)
 else:
     client = None
+
+
+# =========================================================
+# GEMINI REQUEST WITH RETRY
+# =========================================================
+
+def generate_with_retry(prompt, max_retries=3):
+    """Send a Gemini request and retry temporary failures."""
+
+    if client is None:
+        raise RuntimeError("Gemini API key is not configured.")
+
+    last_error = None
+
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+                config={
+                    "response_mime_type": "application/json"
+                }
+            )
+            return response
+
+        except Exception as e:
+            last_error = e
+
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+
+    raise last_error
 
 st.set_page_config(
     page_title="IdeaLens",
@@ -831,13 +879,7 @@ Rules:
 
             try:
 
-                response = client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=prompt,
-                    config={
-                        "response_mime_type": "application/json"
-                    }
-                )
+                response = generate_with_retry(prompt)
 
                 data = json.loads(response.text)
 
@@ -1197,12 +1239,12 @@ Rules:
             except Exception as e:
 
                 st.error(
-                    "Something went wrong while "
-                    "analyzing your idea."
+                    "IdeaLens couldn't complete the analysis right now."
                 )
 
-                st.caption(
-                    str(e)
+                st.info(
+                    "The AI service may be temporarily busy. "
+                    "Please try again in a few seconds."
                 )
 
 
@@ -1370,16 +1412,7 @@ Rules:
 
             try:
 
-                comparison_response = (
-                    client.models.generate_content(
-                        model="gemini-2.5-flash",
-                        contents=comparison_prompt,
-                        config={
-                            "response_mime_type":
-                            "application/json"
-                        }
-                    )
-                )
+                comparison_response = generate_with_retry(comparison_prompt)
 
                 comparison = json.loads(
                     comparison_response.text
@@ -1531,12 +1564,12 @@ Rules:
             except Exception as e:
 
                 st.error(
-                    "Something went wrong while "
-                    "comparing the ideas."
+                    "IdeaLens couldn't compare the projects right now."
                 )
 
-                st.caption(
-                    str(e)
+                st.info(
+                    "The AI service may be temporarily busy. "
+                    "Please try again in a few seconds."
                 )
 
 
