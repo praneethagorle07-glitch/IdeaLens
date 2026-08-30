@@ -13,20 +13,15 @@ from google import genai
 
 load_dotenv()
 
-
-# =========================================================
-# GEMINI API CONFIGURATION
-# =========================================================
-
+# Read from Streamlit Secrets first (deployed app),
+# then fall back to .env for local development.
 API_KEY = None
 
-# Try Streamlit Secrets first (used when deployed)
 try:
     API_KEY = st.secrets.get("GEMINI_API_KEY")
 except Exception:
     API_KEY = None
 
-# Fall back to .env for local development
 if not API_KEY:
     API_KEY = os.getenv("GEMINI_API_KEY")
 
@@ -35,14 +30,16 @@ if API_KEY:
 else:
     client = None
 
-
 # =========================================================
 # GEMINI REQUEST WITH RETRY
 # =========================================================
 
-def generate_with_retry(prompt, max_retries=3):
-    """Send a Gemini request and retry temporary failures."""
-
+def generate_json_with_retry(prompt, model_name, max_retries=3):
+    """
+    Generate a JSON response from Gemini.
+    Retries transient service/rate-limit/time-out failures
+    with exponential backoff.
+    """
     if client is None:
         raise RuntimeError("Gemini API key is not configured.")
 
@@ -50,22 +47,118 @@ def generate_with_retry(prompt, max_retries=3):
 
     for attempt in range(max_retries):
         try:
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
+            return client.models.generate_content(
+                model=model_name,
                 contents=prompt,
                 config={
                     "response_mime_type": "application/json"
                 }
             )
-            return response
+        except Exception as exc:
+            last_error = exc
+            message = str(exc).lower()
 
-        except Exception as e:
-            last_error = e
+            transient = any(
+                token in message
+                for token in (
+                    "503",
+                    "unavailable",
+                    "service unavailable",
+                    "overloaded",
+                    "timeout",
+                    "timed out",
+                    "429",
+                    "rate limit",
+                    "resource exhausted",
+                )
+            )
 
-            if attempt < max_retries - 1:
-                time.sleep(2 ** attempt)
+            if not transient or attempt == max_retries - 1:
+                raise
+
+            # 1s, 2s, 4s backoff between retries.
+            time.sleep(2 ** attempt)
 
     raise last_error
+
+
+def local_compare_fallback(project_a, project_b, career_goal, experience_level, skills):
+    """
+    Deterministic fallback used only when Gemini is temporarily unavailable.
+    It keeps the comparison feature usable without pretending the result came
+    from the model.
+    """
+    skill_text = {s.strip().lower() for s in skills.split(",") if s.strip()}
+    profile_terms = " ".join(skill_text)
+
+    def score_project(text):
+        t = text.lower()
+
+        tech_terms = [
+            "machine learning", "llm", "generative ai", "nlp", "rag",
+            "embedding", "vector", "recommendation", "api", "streamlit",
+            "resume", "job", "interview", "pdf", "backend", "deployment"
+        ]
+        impact_terms = [
+            "students", "job", "career", "resume", "interview", "learning",
+            "recommend", "personalized", "skill gap"
+        ]
+
+        tech_hits = sum(1 for term in tech_terms if term in t)
+        impact_hits = sum(1 for term in impact_terms if term in t)
+        skill_hits = sum(
+            1 for s in skill_text
+            if len(s) > 2 and s in t
+        )
+
+        innovation = min(10, 6 + min(3, tech_hits // 2) + min(1, skill_hits))
+        impact = min(10, 6 + min(3, impact_hits // 2))
+        feasibility = max(5, min(9, 9 - max(0, tech_hits - 4) // 2))
+        technical_depth = min(10, 6 + min(4, tech_hits // 2))
+        resume_value = min(10, 6 + min(3, (impact_hits + skill_hits) // 2))
+        overall = round((innovation + impact + feasibility + technical_depth + resume_value) / 5, 1)
+
+        return {
+            "innovation": innovation,
+            "impact": impact,
+            "feasibility": feasibility,
+            "technical_depth": technical_depth,
+            "resume_value": resume_value,
+            "overall": overall,
+        }
+
+    a_scores = score_project(project_a)
+    b_scores = score_project(project_b)
+
+    a_title = project_a.strip().split(".")[0][:70].strip() or "Project A"
+    b_title = project_b.strip().split(".")[0][:70].strip() or "Project B"
+
+    winner = "A" if a_scores["overall"] >= b_scores["overall"] else "B"
+    winner_title = a_title if winner == "A" else b_title
+    loser_title = b_title if winner == "A" else a_title
+
+    recommendation = (
+        f"For a {experience_level.lower()} targeting {career_goal}, "
+        f"{winner_title} is the stronger portfolio choice based on the current "
+        f"skill profile. It offers a practical balance of impact, technical depth, "
+        f"and resume value compared with {loser_title}."
+    )
+
+    reasoning = [
+        "The project aligns with the stated career goal.",
+        "The project can be connected to the user's current skills.",
+        "Its overall score provides a balanced portfolio-oriented choice."
+    ]
+
+    return {
+        "project_a": {"title": a_title, **a_scores},
+        "project_b": {"title": b_title, **b_scores},
+        "winner": winner,
+        "recommendation": recommendation,
+        "reasoning": reasoning,
+        "source": "local_fallback",
+    }
+
 
 st.set_page_config(
     page_title="IdeaLens",
@@ -879,7 +972,11 @@ Rules:
 
             try:
 
-                response = generate_with_retry(prompt)
+                response = generate_json_with_retry(
+                    prompt,
+                    model_name="gemini-2.5-flash",
+                    max_retries=3
+                )
 
                 data = json.loads(response.text)
 
@@ -1236,7 +1333,7 @@ Rules:
                 )
 
 
-            except Exception as e:
+            except Exception:
 
                 st.error(
                     "IdeaLens couldn't complete the analysis right now."
@@ -1410,19 +1507,40 @@ Rules:
             "⚖️ Comparing your project ideas..."
         ):
 
+            comparison_source = "ai"
+
             try:
 
-                comparison_response = generate_with_retry(comparison_prompt)
-
-                comparison = json.loads(
-                    comparison_response.text
-                )
-
+                try:
+                    comparison_response = generate_json_with_retry(
+                        comparison_prompt,
+                        model_name="gemini-3.1-flash-lite",
+                        max_retries=3
+                    )
+                    comparison = json.loads(
+                        comparison_response.text
+                    )
+                except Exception:
+                    # Gemini can return 503 during temporary capacity spikes.
+                    # Keep the feature usable with a transparent local fallback.
+                    comparison = local_compare_fallback(
+                        project_a,
+                        project_b,
+                        career_goal,
+                        experience_level,
+                        skills
+                    )
+                    comparison_source = "local_fallback"
 
                 st.success(
                     "Comparison completed! 🎉"
                 )
 
+                if comparison_source == "local_fallback":
+                    st.info(
+                        "Gemini was temporarily unavailable, so IdeaLens used "
+                        "local fallback scoring for this comparison."
+                    )
 
                 # =================================================
                 # COMPARISON DATA
@@ -1435,7 +1553,6 @@ Rules:
                 project_b_data = comparison[
                     "project_b"
                 ]
-
 
                 # =================================================
                 # COMPARISON TABLE
@@ -1479,13 +1596,11 @@ Rules:
                     comparison_table
                 )
 
-
                 # =================================================
                 # WINNER
                 # =================================================
 
                 winner = comparison["winner"]
-
 
                 if winner == "A":
 
@@ -1507,7 +1622,6 @@ Rules:
                         project_b_data["overall"]
                     )
 
-
                 st.markdown(
                     "### 🏆 IdeaLens Recommendation"
                 )
@@ -1522,7 +1636,6 @@ Rules:
                     f"{winner_score}/10"
                 )
 
-
                 # =================================================
                 # RECOMMENDATION
                 # =================================================
@@ -1534,7 +1647,6 @@ Rules:
                 st.write(
                     comparison["recommendation"]
                 )
-
 
                 # =================================================
                 # REASONING
@@ -1552,25 +1664,16 @@ Rules:
                         f"- {reason}"
                     )
 
-
-            except json.JSONDecodeError:
-
-                st.error(
-                    "Gemini returned an unexpected "
-                    "comparison format. Please try again."
-                )
-
-
-            except Exception as e:
+            except Exception:
 
                 st.error(
                     "IdeaLens couldn't compare the projects right now."
                 )
 
                 st.info(
-                    "The AI service may be temporarily busy. "
-                    "Please try again in a few seconds."
+                    "Please check your API key and try again."
                 )
+
 
 
 # =========================================================
