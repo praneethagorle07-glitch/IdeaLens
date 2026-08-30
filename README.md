@@ -66,7 +66,19 @@ Suggests projects based on the user's:
 
 ```text
 IdeaLens/
-│
+│## 📸 Screenshots
+
+### 🏠 Home
+![IdeaLens Home](screenshots/home.png)
+
+### 📊 AI-Powered Evaluation
+![IdeaLens Evaluation](screenshots/evaluation.png)
+
+### 🧩 Skill Gap Analysis
+![IdeaLens Skill Gap](screenshots/skill-gap.png)
+
+### ⚖️ Project Comparison
+![IdeaLens Comparison](screenshots/comparison.png)
 ├── app.py
 ├── requirements.txt
 ├── README.md
